@@ -3,494 +3,977 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Junction — Live Vehicle Counter</title>
+<title>Traffix — Intelligent Traffic Monitoring</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #0c1210;
-    --panel: #131a17;
-    --panel-2: #0f1513;
-    --line: #263029;
-    --text: #eaeee9;
-    --text-dim: #9aa79e;
-    --amber: #f2c14e;
-    --teal: #4fa8a0;
-    --red: #e2624f;
-    --green: #6fbf73;
+    --bg:#0b1110; --panel:#121a17; --panel-2:#0e1614; --line:#233029;
+    --text:#eaeee9; --text-dim:#93a49a;
+    --amber:#f2c14e; --teal:#4fa8a0; --red:#e2624f; --green:#6fbf73; --blue:#5b9bd5;
   }
-  * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; }
-  body{
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
-    min-height: 100vh;
-  }
-  .mono{ font-family: 'IBM Plex Mono', monospace; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:var(--teal);}
 
-  header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--line);
-  }
-  header .title{
-    display:flex;
-    align-items:baseline;
-    gap:10px;
-  }
-  header h1{
-    font-size: 20px;
-    font-weight: 700;
-    margin:0;
-    letter-spacing: 0.2px;
-  }
-  header .sub{
-    color: var(--text-dim);
-    font-size: 13px;
-  }
-  .status{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-  .dot{
-    width:8px; height:8px; border-radius:50%;
-    background: var(--text-dim);
-  }
-  .dot.live{ background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .dot.loading{ background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: pulse 1s infinite; }
-  @keyframes pulse{ 50%{ opacity: 0.35; } }
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:10px;}
+  header .title{display:flex;align-items:baseline;gap:10px;}
+  header h1{font-size:20px;margin:0;font-weight:700;}
+  header .sub{color:var(--text-dim);font-size:12.5px;}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;}
+  .pill{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);
+        border:1px solid var(--line);padding:4px 9px;border-radius:3px;background:var(--panel-2);}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-dim);flex-shrink:0;}
+  .dot.ok{background:var(--green);box-shadow:0 0 6px var(--green);}
+  .dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+  .dot.bad{background:var(--red);box-shadow:0 0 6px var(--red);}
+  .dot.pulse{animation:pulse 1s infinite;}
+  @keyframes pulse{50%{opacity:.3;}}
 
-  main{
-    display:grid;
-    grid-template-columns: 1fr 320px;
-    gap: 0;
-    min-height: calc(100vh - 64px);
-  }
-  @media (max-width: 860px){
-    main{ grid-template-columns: 1fr; }
-  }
+  main{display:grid;grid-template-columns:1fr 340px;min-height:calc(100vh - 60px);}
+  @media (max-width:900px){ main{grid-template-columns:1fr;} }
 
-  .stage{
-    position:relative;
-    background: #05070650;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding: 18px;
-  }
-  .frame-wrap{
-    position:relative;
-    width:100%;
-    max-width: 920px;
-    aspect-ratio: 4 / 3;
-    background: #000;
-    border: 1px solid var(--line);
-    overflow:hidden;
-  }
-  video, canvas{
-    position:absolute;
-    top:0; left:0;
-    width:100%; height:100%;
-    object-fit: cover;
-  }
-  .placeholder{
-    position:absolute; inset:0;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap: 14px;
-    color: var(--text-dim);
-    text-align:center;
-    padding: 30px;
-  }
-  .placeholder svg{ opacity: 0.6; }
+  .tabs{display:flex;gap:2px;padding:12px 16px 0;}
+  .tab{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:9px 14px;background:var(--panel-2);
+       color:var(--text-dim);border:1px solid var(--line);border-bottom:none;cursor:pointer;}
+  .tab.active{color:var(--text);background:var(--panel);border-bottom:2px solid var(--amber);margin-bottom:-1px;}
 
-  .controls{
-    display:flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 14px 18px 4px;
-    max-width: 920px;
-    width: 100%;
-    margin: 0 auto;
-  }
-  button{
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 10px 16px;
-    border-radius: 3px;
-    border: 1px solid var(--line);
-    background: var(--panel);
-    color: var(--text);
-    cursor: pointer;
-    transition: border-color 0.15s ease, background 0.15s ease;
-  }
-  button:hover{ border-color: var(--amber); }
-  button.primary{
-    background: var(--amber);
-    color: #14180f;
-    border-color: var(--amber);
-  }
-  button.primary:hover{ filter: brightness(1.08); }
-  button:disabled{ opacity: 0.4; cursor: not-allowed; }
-  button.danger{ border-color: var(--red); color: var(--red); background:transparent; }
+  .stage-wrap{padding:0 16px 12px;}
+  .stage{position:relative;background:#000;border:1px solid var(--line);aspect-ratio:4/3;max-width:920px;overflow:hidden;}
+  video,canvas,img.src-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;}
+  #overlay{object-fit:contain;pointer-events:none;}
+  .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+               gap:12px;color:var(--text-dim);text-align:center;padding:24px;font-size:13.5px;}
 
-  .thresh{
-    display:flex; align-items:center; gap:8px;
-    font-family:'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-left: auto;
-  }
-  .thresh input[type=range]{ width: 100px; accent-color: var(--amber); }
+  .emergency-banner{position:absolute;top:0;left:0;right:0;background:var(--red);color:#1a0d0a;padding:10px 14px;
+      font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;display:none;align-items:center;gap:10px;z-index:5;}
+  .emergency-banner.show{display:flex;}
 
-  aside{
-    background: var(--panel);
-    border-left: 1px solid var(--line);
-    padding: 20px;
-    overflow-y: auto;
-  }
-  aside h2{
-    font-size: 12px;
-    text-transform: none;
-    letter-spacing: 0.3px;
-    color: var(--text-dim);
-    margin: 0 0 4px;
-    font-weight: 500;
-  }
-  .total-row{
-    display:flex; align-items:baseline; gap:10px;
-    padding: 10px 0 18px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 14px;
-  }
-  .total-row .num{ font-size: 40px; font-weight: 600; font-family:'IBM Plex Mono', monospace; }
-  .total-row .label{ color: var(--text-dim); font-size: 13px; }
+  .controls{display:flex;flex-wrap:wrap;gap:9px;padding:12px 16px;max-width:920px;align-items:center;}
+  button{font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:600;padding:9px 15px;border-radius:3px;
+         border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;}
+  button:hover{border-color:var(--amber);}
+  button.primary{background:var(--amber);color:#14180f;border-color:var(--amber);}
+  button.danger{border-color:var(--red);color:var(--red);background:transparent;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  select,input[type=file]{font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--panel-2);
+         color:var(--text);border:1px solid var(--line);padding:8px 10px;border-radius:3px;}
 
-  .count-row{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding: 9px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .count-row .name{
-    display:flex; align-items:center; gap:8px;
-    font-size: 14px;
-  }
-  .swatch{ width:10px; height:10px; flex-shrink:0; }
-  .count-row .nums{
-    display:flex; gap: 14px;
-    font-family:'IBM Plex Mono', monospace;
-    font-size: 13px;
-  }
-  .count-row .nums .now{ color: var(--text); font-weight:600; min-width: 16px; text-align:right; display:inline-block;}
-  .count-row .nums .peak{ color: var(--text-dim); min-width: 16px; text-align:right; display:inline-block;}
+  .thresh{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-dim);margin-left:auto;}
+  .thresh input[type=range]{width:110px;accent-color:var(--amber);}
+  .helptip{font-size:11px;color:var(--text-dim);max-width:920px;padding:0 16px 6px;line-height:1.5;}
 
-  .nums-head{
-    display:flex; justify-content:flex-end; gap:14px;
-    font-family:'IBM Plex Mono', monospace;
-    font-size: 10px;
-    color: var(--text-dim);
-    padding-bottom: 4px;
-  }
-  .nums-head span{ min-width:16px; text-align:right; }
+  .metrics-row{display:flex;flex-wrap:wrap;gap:14px;padding:0 16px 18px;max-width:920px;
+               font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-dim);}
+  .metrics-row b{color:var(--text);}
 
-  .section-gap{ height: 22px; }
+  aside{background:var(--panel);border-left:1px solid var(--line);padding:18px;overflow-y:auto;}
+  aside h2{font-size:11.5px;color:var(--text-dim);margin:0 0 8px;font-weight:500;letter-spacing:.3px;text-transform:uppercase;}
+  .card{border:1px solid var(--line);padding:12px;margin-bottom:16px;background:var(--panel-2);}
 
-  .emergency-box{
-    border: 1px dashed var(--line);
-    padding: 12px;
-    font-size: 12.5px;
-    color: var(--text-dim);
-    line-height: 1.5;
-  }
-  .emergency-box strong{ color: var(--text); }
-  .emergency-row{
-    display:flex; justify-content:space-between; align-items:center;
-    padding: 6px 0;
-  }
-  .emergency-row .name{ display:flex; align-items:center; gap:8px; color: var(--text-dim); }
-  .emergency-row .nums{ font-family:'IBM Plex Mono', monospace; color: var(--text-dim); }
+  .total-row{display:flex;align-items:baseline;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:10px;}
+  .total-row .num{font-size:34px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+  .total-row .label{color:var(--text-dim);font-size:12.5px;}
 
-  footer{
-    padding: 14px 22px 26px;
-    color: var(--text-dim);
-    font-size: 12px;
-    max-width: 920px;
-  }
-  a{ color: var(--teal); }
+  .nums-head{display:flex;justify-content:flex-end;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);padding-bottom:4px;}
+  .nums-head span{min-width:14px;text-align:right;}
+  .count-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .count-row.dim{opacity:.4;}
+  .count-row .name{display:flex;align-items:center;gap:7px;}
+  .swatch{width:9px;height:9px;flex-shrink:0;}
+  .count-row .nums{display:flex;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .count-row .nums span{min-width:14px;text-align:right;display:inline-block;}
+
+  .density-badge{display:inline-block;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;border-radius:3px;}
+  .density-LOW{background:#1f3a24;color:var(--green);}
+  .density-MODERATE{background:#3a3520;color:var(--amber);}
+  .density-HIGH{background:#3a2820;color:#e88a4e;}
+  .density-SEVERE{background:#3a1f20;color:var(--red);}
+  .density-note{font-size:11px;color:var(--text-dim);margin-top:8px;line-height:1.5;}
+
+  .signal-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  .signal-row .dir{color:var(--text);}
+  .signal-row .val{color:var(--text-dim);}
+  .signal-note{font-size:10.5px;color:var(--text-dim);margin-top:6px;line-height:1.5;}
+
+  .model-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12.5px;}
+  .model-row .name{color:var(--text);}
+  .model-row .status{font-family:'IBM Plex Mono',monospace;font-size:11px;display:flex;align-items:center;gap:6px;}
+
+  footer{padding:16px;color:var(--text-dim);font-size:11.5px;max-width:920px;line-height:1.6;}
 </style>
 </head>
 <body>
 
 <header>
   <div class="title">
-    <h1>Junction</h1>
-    <span class="sub">live vehicle counter</span>
+    <h1>Traffix</h1>
+    <span class="sub">intelligent traffic monitoring — prototype</span>
   </div>
-  <div class="status">
-    <span class="dot" id="statusDot"></span>
-    <span id="statusText">idle</span>
+  <div class="pills">
+    <span class="pill"><span class="dot" id="camDot"></span><span id="camText">camera idle</span></span>
+    <span class="pill"><span class="dot" id="modelDot"></span><span id="modelText">model idle</span></span>
+    <span class="pill" id="fpsPill"><span class="dot ok"></span><span id="fpsText">-- fps</span></span>
+    <span class="pill"><span id="sessionText">00:00</span></span>
   </div>
 </header>
 
 <main>
   <div>
-    <div class="stage">
-      <div class="frame-wrap">
-        <video id="video" autoplay playsinline muted></video>
+    <div class="tabs">
+      <div class="tab active" data-tab="camera">Live Camera</div>
+      <div class="tab" data-tab="image">Test with Image</div>
+      <div class="tab" data-tab="video">Test with Video</div>
+    </div>
+
+    <div class="stage-wrap">
+      <div class="stage" id="stage">
+        <video id="video" autoplay playsinline muted style="display:none"></video>
+        <video id="videoFile" playsinline style="display:none"></video>
+        <img id="imgFile" class="src-img" style="display:none" />
         <canvas id="overlay"></canvas>
         <div class="placeholder" id="placeholder">
-          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-            <path d="M3 17l3-7h12l3 7M5 17h14M7 17v2M17 17v2M7 10l1-3h8l1 3" />
-          </svg>
-          <div>Point the camera at traffic to start counting.<br>Nothing is recorded or sent anywhere — detection runs on this device.</div>
+          Select a tab above, then Start Camera / Upload Image / Upload Video.<br>
+          Everything runs locally in your browser — nothing is uploaded to a server.
         </div>
+        <div class="emergency-banner" id="emergencyBanner">🚨 EMERGENCY VEHICLE DETECTED — <span id="emergencyDetail"></span></div>
       </div>
     </div>
-    <div class="controls">
-      <button class="primary" id="startBtn">Start camera</button>
-      <button id="switchBtn" disabled>Switch camera</button>
-      <button class="danger" id="stopBtn" disabled>Stop</button>
+
+    <div id="panel-camera">
+      <div class="controls">
+        <button class="primary" id="startBtn">Start camera</button>
+        <button id="switchBtn" disabled>Switch camera</button>
+        <button class="danger" id="stopBtn" disabled>Stop</button>
+      </div>
+    </div>
+
+    <div id="panel-image" style="display:none">
+      <div class="controls">
+        <input type="file" id="imageInput" accept="image/*" />
+        <button id="clearImageBtn">Clear</button>
+      </div>
+    </div>
+
+    <div id="panel-video" style="display:none">
+      <div class="controls">
+        <input type="file" id="videoInput" accept="video/*" />
+        <button id="videoPlayBtn" disabled>Play</button>
+        <button id="videoPauseBtn" disabled>Pause</button>
+        <button class="danger" id="videoStopBtn" disabled>Stop</button>
+      </div>
+    </div>
+
+    <div class="controls" style="padding-top:0">
+      <select id="perfMode">
+        <option value="fast">Fast (lower detail)</option>
+        <option value="balanced" selected>Balanced</option>
+        <option value="max">Max detail (tiled, slower)</option>
+      </select>
       <div class="thresh">
-        <label for="threshold">Sensitivity</label>
-        <input type="range" id="threshold" min="0.3" max="0.9" step="0.05" value="0.5">
-        <span id="threshVal" class="mono">0.50</span>
+        <label for="threshold" title="Lower = more detections, more false positives. Higher = fewer false positives, may miss hard vehicles.">Confidence</label>
+        <input type="range" id="threshold" min="0.3" max="0.9" step="0.05" value="0.45">
+        <span id="threshVal" class="mono">0.45</span>
       </div>
     </div>
+    <div class="helptip">Confidence sets the minimum detector score to accept a box. It does not fix missed small/distant vehicles by itself — "Max detail" mode helps more with those by re-scanning the frame in overlapping tiles.</div>
+
+    <div class="metrics-row">
+      <span>Model: <b id="metricModel">—</b></span>
+      <span>Backend: <b id="metricBackend">—</b></span>
+      <span>Inference: <b id="metricFps">—</b></span>
+      <span>Mode: <b id="metricMode">—</b></span>
+    </div>
+
     <footer>
-      Detection covers car, bus, truck, motorcycle and bicycle, using a general-purpose object detector (COCO-SSD) running locally in the browser.
-      "Now" is what's visible in the current frame; "Peak" is the highest simultaneous count seen so far this session.
+      Detection runs entirely on this device — camera, image and video data never leave your browser.
+      Vehicle identity (tracking IDs) is approximate: it uses position/overlap matching between frames, not
+      true re-identification, so a vehicle that leaves and re-enters the frame may be counted again.
     </footer>
   </div>
 
   <aside>
-    <h2>Total vehicles</h2>
+    <h2>Current vehicles</h2>
     <div class="total-row">
       <span class="num mono" id="totalNow">0</span>
-      <span class="label">now · <span id="totalPeak">0</span> peak</span>
+      <span class="label">now · <span id="totalPeak">0</span> peak · <span id="totalTracked">0</span> tracked this session</span>
     </div>
-
     <div class="nums-head"><span>Now</span><span>Peak</span></div>
     <div id="countList"></div>
 
-    <div class="section-gap"></div>
-    <h2>Emergency vehicles</h2>
-    <div class="emergency-box">
-      <div class="emergency-row"><span class="name"><span class="swatch" style="background:var(--red)"></span>Ambulance</span><span class="nums">— / —</span></div>
-      <div class="emergency-row"><span class="name"><span class="swatch" style="background:var(--red)"></span>Fire brigade</span><span class="nums">— / —</span></div>
-      <div class="emergency-row"><span class="name"><span class="swatch" style="background:var(--red)"></span>Police</span><span class="nums">— / —</span></div>
-      <div style="margin-top:8px;">
-        <strong>Not detected yet.</strong> The general-purpose model only knows "car" and "truck" — it can't tell an ambulance from a delivery van. Reliably spotting emergency vehicles needs a model fine-tuned on labelled photos of ambulances, fire trucks and police cars, which is a good next step once this base version works for you.
-      </div>
+    <div style="height:18px"></div>
+    <h2>Estimated Traffic Density</h2>
+    <div class="card">
+      <span class="density-badge density-LOW" id="densityBadge">LOW</span>
+      <div class="density-note">Heuristic based on vehicles currently visible in this single feed — not a calibrated road-capacity measurement.</div>
+    </div>
+
+    <h2>Signal Recommendation <span style="font-weight:400;text-transform:none;color:var(--text-dim)">(AI-assisted demo)</span></h2>
+    <div class="card">
+      <div class="signal-row"><span class="dir">North (this camera)</span><span class="val mono" id="sigNorth">—</span></div>
+      <div class="signal-row"><span class="dir">East</span><span class="val mono">MODERATE → normal cycle</span></div>
+      <div class="signal-row"><span class="dir">South</span><span class="val mono">LOW → short cycle</span></div>
+      <div class="signal-row"><span class="dir">West</span><span class="val mono">LOW → short cycle</span></div>
+      <div class="signal-note">Only "North" reflects this camera's live count. East/South/West are illustrative demo values — a real deployment needs one feed per approach. Not a real signal controller.</div>
+    </div>
+
+    <h2>Model Architecture</h2>
+    <div class="card">
+      <div class="model-row"><span class="name">General vehicle model</span><span class="status" id="genModelStatus"><span class="dot warn"></span>loading…</span></div>
+      <div class="model-row"><span class="name">Emergency vehicle model</span><span class="status" id="emModelStatus"><span class="dot bad"></span>not loaded</span></div>
+      <div class="density-note" style="margin-top:6px">Emergency detection (ambulance / police / fire truck) needs a fine-tuned model — see the explanation after this file for how to train and plug one in.</div>
     </div>
   </aside>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
 <script>
-(function(){
-  const CATEGORY_MAP = {
-    car:        { label: 'Car',        color: '#f2c14e' },
-    truck:      { label: 'Truck',      color: '#e2624f' },
-    bus:        { label: 'Bus',        color: '#4fa8a0' },
-    motorcycle: { label: 'Bike',       color: '#8bd3cb' },
-    bicycle:    { label: 'Bicycle',    color: '#a7c95a' },
+/* =========================================================================
+   1. CONFIGURATION
+   ========================================================================= */
+const CONFIG = {
+  // Which pipeline powers the GENERAL vehicle detector (car/bus/truck/motorcycle/bicycle).
+  //   'coco-ssd'    -> TensorFlow.js COCO-SSD (mobilenet_v2 base). Ships working out of the box,
+  //                    weights are served from Google's official TF-Hub CDN (reliable, no setup).
+  //   'yolov8-onnx' -> Stronger detector via onnxruntime-web. Requires YOU to export yolov8n.onnx
+  //                    yourself and host it next to this file (see GENERAL_MODEL.onnxUrl below).
+  //                    We do NOT default to this because it would depend on a third-party's
+  //                    hosted .onnx file with no uptime guarantee -- a broken link would break
+  //                    the whole app on first load. Once you host your own file, flip this flag.
+  DETECTOR_BACKEND: 'coco-ssd',
+
+  GENERAL_MODEL: {
+    onnxUrl: 'models/yolov8n.onnx',   // put your exported model here and switch DETECTOR_BACKEND above
+    inputSize: 640,
+    scoreThreshold: 0.45,
+    iouThreshold: 0.45,
+    // Standard COCO class indices for vehicle-relevant classes (used only in yolov8-onnx mode,
+    // since yolov8n.onnx ships pretrained on full COCO with 80 classes).
+    classMap: { 2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck', 1: 'bicycle' }
+  },
+
+  // Specialized model for ambulance / police / fire truck. NOT included by default -- no
+  // reliable public pretrained model exists for these classes. Train your own (see write-up
+  // after the code) and point this at your hosted .onnx file to activate it.
+  EMERGENCY_MODEL: {
+    onnxUrl: null,   // e.g. 'models/traffix-emergency.onnx' once you have one
+    inputSize: 640,
+    scoreThreshold: 0.5,
+    iouThreshold: 0.45,
+    classMap: { 0: 'ambulance', 1: 'police', 2: 'fire_truck' }
+  },
+
+  CATEGORY_INFO: {
+    car:        { label: 'Car',        color: '#f2c14e', emergency: false },
+    bus:        { label: 'Bus',        color: '#4fa8a0', emergency: false },
+    truck:      { label: 'Truck',      color: '#e2624f', emergency: false },
+    motorcycle: { label: 'Motorcycle', color: '#8bd3cb', emergency: false },
+    bicycle:    { label: 'Bicycle',    color: '#a7c95a', emergency: false },
+    ambulance:  { label: 'Ambulance',  color: '#ff5a5a', emergency: true },
+    police:     { label: 'Police',     color: '#5b9bd5', emergency: true },
+    fire_truck: { label: 'Fire Truck', color: '#ff8a3d', emergency: true },
+  },
+  CATEGORY_ORDER: ['car','bus','truck','motorcycle','bicycle','ambulance','police','fire_truck'],
+
+  TRACK_MAX_MISSED: 10,     // frames a track can go unmatched before being dropped
+  TRACK_IOU_MATCH: 0.3,     // minimum IoU to consider a detection the same tracked vehicle
+  ALERT_COOLDOWN_MS: 6000,  // don't re-fire the same emergency alert more than once per this window
+  DENSITY_THRESHOLDS: { LOW: 5, MODERATE: 12, HIGH: 20 }, // >HIGH = SEVERE
+};
+
+/* =========================================================================
+   2. STATE
+   ========================================================================= */
+const state = {
+  activeTab: 'camera',
+  cameraStatus: 'idle',       // idle | starting | connected | permission_denied | unavailable | error
+  facingMode: 'environment',
+  stream: null,
+  perfMode: 'balanced',
+  threshold: 0.45,
+  running: false,
+  source: null,               // current HTMLVideoElement or HTMLImageElement being detected on
+  sourceKind: null,            // 'camera' | 'image' | 'video'
+  detectLoopHandle: null,
+  lastInferMs: [],             // rolling window for FPS
+  sessionStart: null,
+  tracks: new Map(),           // id -> track object
+  nextTrackId: 1,
+  totalTrackedEver: 0,
+  peakByCategory: {},
+  peakTotal: 0,
+  lastAlertAt: {},             // category -> timestamp
+  generalDetector: null,
+  emergencyDetector: null,
+};
+CONFIG.CATEGORY_ORDER.forEach(c => { state.peakByCategory[c] = 0; });
+
+/* =========================================================================
+   3. DOM REFERENCES
+   ========================================================================= */
+const dom = {
+  video: document.getElementById('video'),
+  videoFile: document.getElementById('videoFile'),
+  imgFile: document.getElementById('imgFile'),
+  overlay: document.getElementById('overlay'),
+  placeholder: document.getElementById('placeholder'),
+  stage: document.getElementById('stage'),
+  emergencyBanner: document.getElementById('emergencyBanner'),
+  emergencyDetail: document.getElementById('emergencyDetail'),
+
+  startBtn: document.getElementById('startBtn'),
+  switchBtn: document.getElementById('switchBtn'),
+  stopBtn: document.getElementById('stopBtn'),
+  imageInput: document.getElementById('imageInput'),
+  clearImageBtn: document.getElementById('clearImageBtn'),
+  videoInput: document.getElementById('videoInput'),
+  videoPlayBtn: document.getElementById('videoPlayBtn'),
+  videoPauseBtn: document.getElementById('videoPauseBtn'),
+  videoStopBtn: document.getElementById('videoStopBtn'),
+
+  perfMode: document.getElementById('perfMode'),
+  threshold: document.getElementById('threshold'),
+  threshVal: document.getElementById('threshVal'),
+
+  camDot: document.getElementById('camDot'), camText: document.getElementById('camText'),
+  modelDot: document.getElementById('modelDot'), modelText: document.getElementById('modelText'),
+  fpsText: document.getElementById('fpsText'),
+  sessionText: document.getElementById('sessionText'),
+
+  metricModel: document.getElementById('metricModel'),
+  metricBackend: document.getElementById('metricBackend'),
+  metricFps: document.getElementById('metricFps'),
+  metricMode: document.getElementById('metricMode'),
+
+  totalNow: document.getElementById('totalNow'),
+  totalPeak: document.getElementById('totalPeak'),
+  totalTracked: document.getElementById('totalTracked'),
+  countList: document.getElementById('countList'),
+
+  densityBadge: document.getElementById('densityBadge'),
+  sigNorth: document.getElementById('sigNorth'),
+
+  genModelStatus: document.getElementById('genModelStatus'),
+  emModelStatus: document.getElementById('emModelStatus'),
+};
+const ctx = dom.overlay.getContext('2d');
+
+/* =========================================================================
+   4. MODEL LOADING  (VehicleDetector abstraction)
+   ========================================================================= */
+// Common interface every detector implements: load(), detect(source) -> [{class,score,bbox}], dispose()
+
+class CocoSsdDetector {
+  constructor(){ this.model = null; this.tiling = false; }
+
+  async load(){
+    await tf.ready();
+    try { await tf.setBackend('webgl'); } catch(e){ await tf.setBackend('cpu'); }
+    this.model = await cocoSsd.load({ base: 'mobilenet_v2' }); // fuller base than lite_mobilenet_v2 for better accuracy
+    return this;
+  }
+
+  backendName(){ return tf.getBackend(); }
+
+  // Runs detection once on a full frame (no tiling).
+  async _detectRaw(canvas){
+    const raw = await this.model.detect(canvas, 40, 0.15); // low internal threshold; we filter later
+    return raw
+      .filter(p => CONFIG.CATEGORY_INFO[p.class])
+      .map(p => ({ class: p.class, score: p.score, bbox: p.bbox }));
+  }
+
+  // Tiled inference: crops the frame into overlapping tiles so small/distant vehicles occupy more
+  // pixels relative to the model's fixed internal input size, then merges + globally NMS's results.
+  async _detectTiled(canvas, rows, cols, overlap){
+    const w = canvas.width, h = canvas.height;
+    const tileW = w / cols, tileH = h / rows;
+    const stepX = tileW * (1 - overlap), stepY = tileH * (1 - overlap);
+    const all = [];
+    const tileCanvas = document.createElement('canvas');
+    const tctx = tileCanvas.getContext('2d');
+
+    for (let r = 0; r < rows; r++){
+      for (let c = 0; c < cols; c++){
+        const ox = Math.min(c * stepX, w - tileW);
+        const oy = Math.min(r * stepY, h - tileH);
+        tileCanvas.width = tileW; tileCanvas.height = tileH;
+        tctx.drawImage(canvas, ox, oy, tileW, tileH, 0, 0, tileW, tileH);
+        const preds = await this._detectRaw(tileCanvas);
+        preds.forEach(p => {
+          all.push({ class: p.class, score: p.score, bbox: [p.bbox[0]+ox, p.bbox[1]+oy, p.bbox[2], p.bbox[3]] });
+        });
+      }
+    }
+    return nonMaxSuppressionGlobal(all, 0.5);
+  }
+
+  async detect(source){
+    const canvas = ensureCanvasFrom(source);
+    if (this.tiling) return this._detectTiled(canvas, this.tileRows||2, this.tileCols||2, 0.15);
+    return this._detectRaw(canvas);
+  }
+
+  dispose(){ /* coco-ssd has no public dispose; tf handles tensor cleanup internally */ }
+}
+
+class YoloOnnxDetector {
+  constructor(cfg){ this.cfg = cfg; this.session = null; this.available = false; }
+
+  async load(){
+    if (!this.cfg.onnxUrl) { this.available = false; return this; } // no model configured -- stay unavailable, no fetch attempt
+    try {
+      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+      let providers = ['wasm'];
+      if (navigator.gpu) providers = ['webgpu', 'wasm']; // prefer WebGPU when the browser exposes it
+      this.session = await ort.InferenceSession.create(this.cfg.onnxUrl, { executionProviders: providers });
+      this.backend = providers[0];
+      this.available = true;
+    } catch(e){
+      console.warn('YOLO ONNX model unavailable:', e.message);
+      this.available = false;
+    }
+    return this;
+  }
+
+  backendName(){ return this.backend || 'n/a'; }
+
+  async detect(source){
+    if (!this.available) return [];
+    const size = this.cfg.inputSize;
+    const canvas = ensureCanvasFrom(source);
+    const { tensor, scaleX, scaleY } = preprocessToTensor(canvas, size);
+    const feeds = {}; feeds[this.session.inputNames[0]] = tensor;
+    const results = await this.session.run(feeds);
+    const output = results[this.session.outputNames[0]];
+    return decodeYoloOutput(output, this.cfg, scaleX, scaleY);
+  }
+
+  dispose(){ if (this.session) this.session.release?.(); }
+}
+
+function preprocessToTensor(canvas, size){
+  const tmp = document.createElement('canvas'); tmp.width = size; tmp.height = size;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(canvas, 0, 0, size, size);
+  const imgData = tctx.getImageData(0, 0, size, size).data;
+  const float = new Float32Array(size * size * 3);
+  for (let i = 0; i < size * size; i++){
+    float[i] = imgData[i*4] / 255;
+    float[size*size + i] = imgData[i*4+1] / 255;
+    float[2*size*size + i] = imgData[i*4+2] / 255;
+  }
+  return {
+    tensor: new ort.Tensor('float32', float, [1,3,size,size]),
+    scaleX: canvas.width / size,
+    scaleY: canvas.height / size,
   };
-  const CATEGORY_ORDER = ['car','bus','truck','motorcycle','bicycle'];
+}
 
-  const video = document.getElementById('video');
-  const overlay = document.getElementById('overlay');
-  const ctx = overlay.getContext('2d');
-  const placeholder = document.getElementById('placeholder');
-  const startBtn = document.getElementById('startBtn');
-  const switchBtn = document.getElementById('switchBtn');
-  const stopBtn = document.getElementById('stopBtn');
-  const statusDot = document.getElementById('statusDot');
-  const statusText = document.getElementById('statusText');
-  const thresholdInput = document.getElementById('threshold');
-  const threshVal = document.getElementById('threshVal');
-  const countList = document.getElementById('countList');
-  const totalNowEl = document.getElementById('totalNow');
-  const totalPeakEl = document.getElementById('totalPeak');
-
-  let model = null;
-  let stream = null;
-  let rafId = null;
-  let running = false;
-  let facingMode = 'environment';
-  let threshold = 0.5;
-
-  const peak = {}; CATEGORY_ORDER.forEach(k => peak[k] = 0);
-
-  function buildCountRows(){
-    countList.innerHTML = '';
-    CATEGORY_ORDER.forEach(key => {
-      const info = CATEGORY_MAP[key];
-      const row = document.createElement('div');
-      row.className = 'count-row';
-      row.innerHTML = `
-        <span class="name"><span class="swatch" style="background:${info.color}"></span>${info.label}</span>
-        <span class="nums"><span class="now mono" id="now-${key}">0</span><span class="peak mono" id="peak-${key}">0</span></span>
-      `;
-      countList.appendChild(row);
+// Decodes a standard Ultralytics YOLOv8 [1, 4+numClasses, numBoxes] output tensor into
+// [{class, score, bbox:[x,y,w,h]}] in source-image pixel coordinates, with NMS applied.
+function decodeYoloOutput(output, cfg, scaleX, scaleY){
+  const data = output.data;
+  const [_, channels, numBoxes] = output.dims;
+  const numClasses = channels - 4;
+  const boxes = [];
+  for (let i = 0; i < numBoxes; i++){
+    let bestScore = 0, bestClass = -1;
+    for (let c = 0; c < numClasses; c++){
+      const s = data[(4+c) * numBoxes + i];
+      if (s > bestScore){ bestScore = s; bestClass = c; }
+    }
+    if (bestScore < cfg.scoreThreshold) continue;
+    const label = cfg.classMap[bestClass];
+    if (!label) continue; // ignore COCO classes we don't care about (person, dog, etc.)
+    const cx = data[0*numBoxes+i], cy = data[1*numBoxes+i], bw = data[2*numBoxes+i], bh = data[3*numBoxes+i];
+    boxes.push({
+      class: label, score: bestScore,
+      bbox: [(cx - bw/2) * scaleX, (cy - bh/2) * scaleY, bw * scaleX, bh * scaleY]
     });
   }
-  buildCountRows();
+  return nonMaxSuppressionGlobal(boxes, cfg.iouThreshold);
+}
 
-  function setStatus(state, text){
-    statusDot.className = 'dot' + (state ? ' ' + state : '');
-    statusText.textContent = text;
+function ensureCanvasFrom(source){
+  if (source instanceof HTMLCanvasElement) return source;
+  const c = document.createElement('canvas');
+  const w = source.videoWidth || source.naturalWidth || source.width;
+  const h = source.videoHeight || source.naturalHeight || source.height;
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(source, 0, 0, w, h);
+  return c;
+}
+
+function iou(a, b){
+  const [ax,ay,aw,ah] = a, [bx,by,bw,bh] = b;
+  const x1 = Math.max(ax,bx), y1 = Math.max(ay,by);
+  const x2 = Math.min(ax+aw,bx+bw), y2 = Math.min(ay+ah,by+bh);
+  const inter = Math.max(0,x2-x1) * Math.max(0,y2-y1);
+  const union = aw*ah + bw*bh - inter;
+  return union <= 0 ? 0 : inter/union;
+}
+
+function nonMaxSuppressionGlobal(boxes, iouThresh){
+  const byClass = {};
+  boxes.forEach(b => { (byClass[b.class] = byClass[b.class] || []).push(b); });
+  const kept = [];
+  Object.values(byClass).forEach(list => {
+    list.sort((a,b) => b.score - a.score);
+    const used = new Array(list.length).fill(false);
+    for (let i = 0; i < list.length; i++){
+      if (used[i]) continue;
+      kept.push(list[i]);
+      for (let j = i+1; j < list.length; j++){
+        if (!used[j] && iou(list[i].bbox, list[j].bbox) > iouThresh) used[j] = true;
+      }
+    }
+  });
+  return kept;
+}
+
+/* =========================================================================
+   5. CAMERA MANAGEMENT
+   ========================================================================= */
+async function startCamera(){
+  dom.startBtn.disabled = true;
+  setCameraStatus('starting');
+  try{
+    state.stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: state.facingMode, width:{ideal:1280}, height:{ideal:960} }, audio:false
+    });
+    dom.video.srcObject = state.stream;
+    dom.video.style.display = 'block';
+    await dom.video.play();
+    dom.placeholder.style.display = 'none';
+    setCameraStatus('connected');
+    dom.switchBtn.disabled = false;
+    dom.stopBtn.disabled = false;
+    setSource(dom.video, 'camera');
+    startDetectionLoop();
+  } catch(err){
+    console.error(err);
+    if (err.name === 'NotAllowedError') setCameraStatus('permission_denied');
+    else if (err.name === 'NotFoundError') setCameraStatus('unavailable');
+    else setCameraStatus('error');
+    dom.startBtn.disabled = false;
   }
+}
 
-  thresholdInput.addEventListener('input', () => {
-    threshold = parseFloat(thresholdInput.value);
-    threshVal.textContent = threshold.toFixed(2);
+function stopCamera(){
+  if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+  state.stream = null;
+  dom.video.style.display = 'none';
+  dom.video.srcObject = null;
+  dom.placeholder.style.display = 'flex';
+  setCameraStatus('idle');
+  dom.startBtn.disabled = false;
+  dom.switchBtn.disabled = true;
+  dom.stopBtn.disabled = true;
+  stopDetectionLoop();
+  clearOverlay();
+  resetCounts();
+}
+
+async function switchCamera(){
+  state.facingMode = state.facingMode === 'environment' ? 'user' : 'environment';
+  if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+  try{
+    state.stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode: state.facingMode, width:{ideal:1280}, height:{ideal:960} }, audio:false
+    });
+    dom.video.srcObject = state.stream;
+    await dom.video.play();
+  } catch(err){ alert('Could not switch camera: ' + err.message); }
+}
+
+function setCameraStatus(s){
+  state.cameraStatus = s;
+  const map = {
+    idle: ['', 'camera idle'],
+    starting: ['warn pulse', 'starting camera…'],
+    connected: ['ok', 'camera connected'],
+    permission_denied: ['bad', 'camera: permission denied'],
+    unavailable: ['bad', 'camera: not available'],
+    error: ['bad', 'camera: error'],
+  };
+  const [cls, text] = map[s];
+  dom.camDot.className = 'dot ' + cls;
+  dom.camText.textContent = text;
+  if (s === 'permission_denied') alert('Camera permission was denied.\n\nOn Android Chrome: tap the lock icon next to the address bar → Permissions → Camera → Allow, then reload.');
+  if (s === 'unavailable') alert('No camera was found on this device.');
+}
+
+/* =========================================================================
+   6. IMAGE INPUT
+   ========================================================================= */
+dom.imageInput.addEventListener('change', (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  stopCamera(); stopVideoFile();
+  const url = URL.createObjectURL(file);
+  dom.imgFile.onload = () => {
+    dom.imgFile.style.display = 'block';
+    dom.placeholder.style.display = 'none';
+    setSource(dom.imgFile, 'image');
+    runSingleDetection();
+  };
+  dom.imgFile.src = url;
+});
+dom.clearImageBtn.addEventListener('click', () => {
+  dom.imgFile.style.display = 'none';
+  dom.imgFile.src = '';
+  dom.placeholder.style.display = 'flex';
+  clearOverlay(); resetCounts();
+});
+
+/* =========================================================================
+   7. VIDEO INPUT
+   ========================================================================= */
+dom.videoInput.addEventListener('change', (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  stopCamera();
+  dom.imgFile.style.display = 'none';
+  const url = URL.createObjectURL(file);
+  dom.videoFile.src = url;
+  dom.videoFile.style.display = 'block';
+  dom.placeholder.style.display = 'none';
+  dom.videoPlayBtn.disabled = false;
+  dom.videoPauseBtn.disabled = false;
+  dom.videoStopBtn.disabled = false;
+  setSource(dom.videoFile, 'video');
+});
+dom.videoPlayBtn.addEventListener('click', () => { dom.videoFile.play(); startDetectionLoop(); });
+dom.videoPauseBtn.addEventListener('click', () => { dom.videoFile.pause(); });
+dom.videoStopBtn.addEventListener('click', stopVideoFile);
+function stopVideoFile(){
+  dom.videoFile.pause(); dom.videoFile.currentTime = 0;
+  dom.videoFile.style.display = 'none';
+  dom.videoPlayBtn.disabled = true; dom.videoPauseBtn.disabled = true; dom.videoStopBtn.disabled = true;
+  dom.placeholder.style.display = 'flex';
+  stopDetectionLoop(); clearOverlay(); resetCounts();
+}
+
+function setSource(el, kind){ state.source = el; state.sourceKind = kind; resizeOverlay(el); }
+function resizeOverlay(el){
+  const w = el.videoWidth || el.naturalWidth || el.width || dom.stage.clientWidth;
+  const h = el.videoHeight || el.naturalHeight || el.height || dom.stage.clientHeight;
+  dom.overlay.width = w; dom.overlay.height = h;
+}
+
+/* =========================================================================
+   8. DETECTION LOOP
+   ========================================================================= */
+function stopDetectionLoop(){ state.running = false; if (state.detectLoopHandle) clearTimeout(state.detectLoopHandle); }
+
+function startDetectionLoop(){
+  state.running = true;
+  const loop = async () => {
+    if (!state.running) return;
+    const t0 = performance.now();
+    try {
+      if (state.sourceKind !== 'image') resizeOverlay(state.source);
+      const detector = getActiveGeneralDetector();
+      let dets = detector && detector.model !== null || detector?.available ? await detector.detect(state.source) : [];
+      dets = dets.filter(d => d.score >= state.threshold);
+
+      let emDets = [];
+      if (state.emergencyDetector && state.emergencyDetector.available){
+        emDets = (await state.emergencyDetector.detect(state.source)).filter(d => d.score >= state.threshold);
+      }
+
+      const merged = [...dets, ...emDets];
+      const tracked = updateTracker(merged);
+      drawDetections(tracked);
+      updateCountsFromTracks();
+      checkEmergencyAlerts(tracked);
+    } catch(e){ console.error('Detection error:', e); }
+
+    const dt = performance.now() - t0;
+    state.lastInferMs.push(dt); if (state.lastInferMs.length > 20) state.lastInferMs.shift();
+    updateFpsDisplay();
+
+    // Controlled interval rather than raw rAF: prevents pile-up of expensive inference on slow devices.
+    const targetDelay = Math.max(30, 250 - dt); // aim for responsiveness without overloading the device
+    state.detectLoopHandle = setTimeout(loop, targetDelay);
+  };
+  loop();
+}
+
+async function runSingleDetection(){
+  resizeOverlay(state.source);
+  const detector = getActiveGeneralDetector();
+  let dets = await detector.detect(state.source);
+  dets = dets.filter(d => d.score >= state.threshold);
+  let emDets = [];
+  if (state.emergencyDetector && state.emergencyDetector.available){
+    emDets = (await state.emergencyDetector.detect(state.source)).filter(d => d.score >= state.threshold);
+  }
+  const merged = [...dets, ...emDets];
+  // For a static image there is nothing to "track" across frames -- just assign a fresh, one-off ID to each box.
+  const withIds = merged.map((d,i) => ({...d, id:i+1}));
+  drawDetections(withIds);
+  updateCountsFromStatic(withIds);
+}
+
+function getActiveGeneralDetector(){
+  return CONFIG.DETECTOR_BACKEND === 'yolov8-onnx' ? state.generalDetector : state.generalDetector;
+}
+
+/* =========================================================================
+   9. TRACKING  (lightweight IoU-based centroid tracker)
+   ========================================================================= */
+function updateTracker(detections){
+  const unmatchedDetIdx = new Set(detections.map((_,i)=>i));
+  const activeTrackIds = Array.from(state.tracks.keys());
+
+  // Greedy IoU matching: try to pair each existing track with the best remaining detection of the same class.
+  const pairs = [];
+  activeTrackIds.forEach(tid => {
+    const track = state.tracks.get(tid);
+    let bestIdx = -1, bestIoU = CONFIG.TRACK_IOU_MATCH;
+    detections.forEach((d, i) => {
+      if (!unmatchedDetIdx.has(i) || d.class !== track.class) return;
+      const v = iou(track.bbox, d.bbox);
+      if (v > bestIoU){ bestIoU = v; bestIdx = i; }
+    });
+    if (bestIdx >= 0) pairs.push([tid, bestIdx]);
+  });
+  pairs.forEach(([tid, idx]) => {
+    const track = state.tracks.get(tid);
+    track.bbox = detections[idx].bbox; track.score = detections[idx].score;
+    track.missed = 0; track.lastSeen = performance.now();
+    unmatchedDetIdx.delete(idx);
   });
 
-  async function loadModel(){
-    if (model) return model;
-    setStatus('loading', 'loading model…');
-    model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-    return model;
-  }
-
-  async function startCamera(){
-    startBtn.disabled = true;
-    try{
-      await loadModel();
-      setStatus('loading', 'starting camera…');
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
-        audio: false
-      });
-      video.srcObject = stream;
-      await video.play();
-      placeholder.style.display = 'none';
-      resizeOverlay();
-      running = true;
-      switchBtn.disabled = false;
-      stopBtn.disabled = false;
-      setStatus('live', 'live');
-      detectLoop();
-    }catch(err){
-      console.error(err);
-      setStatus('', 'camera error');
-      alert('Could not access the camera: ' + err.message + '\n\nMake sure this page has camera permission and that you\'re on HTTPS.');
-      startBtn.disabled = false;
+  // Age out unmatched tracks; drop them once missed too many frames in a row.
+  activeTrackIds.forEach(tid => {
+    if (!pairs.find(p => p[0] === tid)){
+      const track = state.tracks.get(tid);
+      track.missed++;
+      if (track.missed > CONFIG.TRACK_MAX_MISSED) state.tracks.delete(tid);
     }
-  }
+  });
 
-  function stopCamera(){
-    running = false;
-    if (rafId) cancelAnimationFrame(rafId);
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    stream = null;
-    video.srcObject = null;
-    placeholder.style.display = 'flex';
-    ctx.clearRect(0,0,overlay.width, overlay.height);
-    startBtn.disabled = false;
-    switchBtn.disabled = true;
-    stopBtn.disabled = true;
-    setStatus('', 'idle');
-    resetCounts();
-  }
+  // Any detection left unmatched becomes a brand-new track.
+  unmatchedDetIdx.forEach(i => {
+    const d = detections[i];
+    const id = state.nextTrackId++;
+    state.tracks.set(id, { id, class: d.class, bbox: d.bbox, score: d.score, missed: 0, isNew: true });
+    state.totalTrackedEver++;
+  });
 
-  async function switchCamera(){
-    facingMode = facingMode === 'environment' ? 'user' : 'environment';
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    try{
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
-        audio: false
-      });
-      video.srcObject = stream;
-      await video.play();
-      resizeOverlay();
-    }catch(err){
-      console.error(err);
-      alert('Could not switch camera: ' + err.message);
+  return Array.from(state.tracks.values()).filter(t => t.missed === 0);
+}
+
+/* =========================================================================
+   10. COUNTING
+   ========================================================================= */
+function updateCountsFromTracks(){
+  const counts = {}; CONFIG.CATEGORY_ORDER.forEach(c => counts[c]=0);
+  state.tracks.forEach(t => { if (t.missed === 0) counts[t.class] = (counts[t.class]||0)+1; });
+  renderCounts(counts);
+}
+function updateCountsFromStatic(dets){
+  const counts = {}; CONFIG.CATEGORY_ORDER.forEach(c => counts[c]=0);
+  dets.forEach(d => counts[d.class] = (counts[d.class]||0)+1);
+  renderCounts(counts, true);
+}
+function renderCounts(counts, isStatic){
+  let totalNow = 0;
+  CONFIG.CATEGORY_ORDER.forEach(cat => {
+    const now = counts[cat] || 0;
+    if (!isStatic && now > state.peakByCategory[cat]) state.peakByCategory[cat] = now;
+    totalNow += now;
+    const nowEl = document.getElementById('now-'+cat), peakEl = document.getElementById('peak-'+cat);
+    if (nowEl) nowEl.textContent = now;
+    if (peakEl) peakEl.textContent = isStatic ? now : state.peakByCategory[cat];
+  });
+  if (!isStatic && totalNow > state.peakTotal) state.peakTotal = totalNow;
+  dom.totalNow.textContent = totalNow;
+  dom.totalPeak.textContent = isStatic ? totalNow : state.peakTotal;
+  dom.totalTracked.textContent = isStatic ? totalNow : state.totalTrackedEver;
+  updateDensity(totalNow);
+}
+function resetCounts(){
+  state.tracks.clear(); state.nextTrackId = 1; state.totalTrackedEver = 0; state.peakTotal = 0;
+  CONFIG.CATEGORY_ORDER.forEach(c => state.peakByCategory[c] = 0);
+  renderCounts({});
+}
+function buildCountRows(){
+  dom.countList.innerHTML = '';
+  CONFIG.CATEGORY_ORDER.forEach(cat => {
+    const info = CONFIG.CATEGORY_INFO[cat];
+    const row = document.createElement('div');
+    row.className = 'count-row' + (info.emergency ? ' dim' : '');
+    row.id = 'row-'+cat;
+    row.innerHTML = `<span class="name"><span class="swatch" style="background:${info.color}"></span>${info.label}</span>
+      <span class="nums"><span id="now-${cat}">0</span><span id="peak-${cat}">0</span></span>`;
+    dom.countList.appendChild(row);
+  });
+}
+
+/* =========================================================================
+   11. EMERGENCY DETECTION
+   ========================================================================= */
+function checkEmergencyAlerts(tracks){
+  const now = performance.now();
+  tracks.forEach(t => {
+    const info = CONFIG.CATEGORY_INFO[t.class];
+    if (!info || !info.emergency) return;
+    const last = state.lastAlertAt[t.class] || 0;
+    if (now - last > CONFIG.ALERT_COOLDOWN_MS){
+      state.lastAlertAt[t.class] = now;
+      showEmergencyBanner(info.label, t.score);
     }
-  }
+  });
+}
+function showEmergencyBanner(label, score){
+  dom.emergencyDetail.textContent = `${label} · ${(score*100).toFixed(0)}% confidence`;
+  dom.emergencyBanner.classList.add('show');
+  clearTimeout(showEmergencyBanner._t);
+  showEmergencyBanner._t = setTimeout(() => dom.emergencyBanner.classList.remove('show'), 5000);
+}
 
-  function resizeOverlay(){
-    const rect = video.getBoundingClientRect();
-    overlay.width = video.videoWidth || rect.width;
-    overlay.height = video.videoHeight || rect.height;
-  }
+/* =========================================================================
+   12. TRAFFIC DENSITY
+   ========================================================================= */
+function updateDensity(total){
+  const { LOW, MODERATE, HIGH } = CONFIG.DENSITY_THRESHOLDS;
+  let level = 'LOW';
+  if (total > HIGH) level = 'SEVERE'; else if (total > MODERATE) level = 'HIGH';
+  else if (total > LOW) level = 'MODERATE';
+  dom.densityBadge.textContent = level;
+  dom.densityBadge.className = 'density-badge density-' + level;
+  updateSignalRecommendation(level);
+}
 
-  function resetCounts(){
-    CATEGORY_ORDER.forEach(k => {
-      peak[k] = 0;
-      document.getElementById('now-'+k).textContent = '0';
-      document.getElementById('peak-'+k).textContent = '0';
+/* =========================================================================
+   13. SIGNAL RECOMMENDATION (demo only)
+   ========================================================================= */
+function updateSignalRecommendation(level){
+  const rec = {
+    LOW: 'LOW → short cycle', MODERATE: 'MODERATE → normal cycle',
+    HIGH: 'HIGH → extend green', SEVERE: 'SEVERE → extend green + alert'
+  }[level];
+  dom.sigNorth.textContent = rec;
+}
+
+/* =========================================================================
+   14. STATISTICS / 15. UI UPDATES
+   ========================================================================= */
+function updateFpsDisplay(){
+  if (!state.lastInferMs.length) return;
+  const avg = state.lastInferMs.reduce((a,b)=>a+b,0) / state.lastInferMs.length;
+  const fps = (1000/avg).toFixed(1);
+  dom.fpsText.textContent = fps + ' fps';
+  dom.metricFps.textContent = fps + ' fps (' + avg.toFixed(0) + ' ms/frame)';
+}
+function tickSession(){
+  if (!state.sessionStart) return;
+  const s = Math.floor((Date.now() - state.sessionStart)/1000);
+  const m = String(Math.floor(s/60)).padStart(2,'0'), sec = String(s%60).padStart(2,'0');
+  dom.sessionText.textContent = `${m}:${sec}`;
+}
+setInterval(tickSession, 1000);
+
+function drawDetections(items){
+  clearOverlay();
+  items.forEach(t => {
+    const info = CONFIG.CATEGORY_INFO[t.class]; if (!info) return;
+    const [x,y,w,h] = t.bbox;
+    ctx.lineWidth = 2; ctx.strokeStyle = info.color; ctx.strokeRect(x,y,w,h);
+    const label = `${info.label}${t.id?' #'+t.id:''} ${(t.score*100).toFixed(0)}%`;
+    ctx.font = '600 14px "IBM Plex Mono", monospace';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = info.color; ctx.fillRect(x-1, y-20, tw+10, 20);
+    ctx.fillStyle = '#0c1210'; ctx.fillText(label, x+4, y-5);
+  });
+}
+function clearOverlay(){ ctx.clearRect(0,0,dom.overlay.width,dom.overlay.height); }
+
+/* =========================================================================
+   16. ERROR HANDLING (model status pills)
+   ========================================================================= */
+function setModelStatus(which, ok, text){
+  const dot = which === 'general' ? dom.genModelStatus.querySelector('.dot') : dom.emModelStatus.querySelector('.dot');
+  const label = which === 'general' ? dom.genModelStatus : dom.emModelStatus;
+  dot.className = 'dot ' + (ok ? 'ok' : 'bad');
+  label.lastChild.textContent = text;
+}
+
+/* =========================================================================
+   17. INITIALIZATION
+   ========================================================================= */
+async function init(){
+  buildCountRows();
+  state.sessionStart = Date.now();
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.dataset.tab;
+      ['camera','image','video'].forEach(k => {
+        document.getElementById('panel-'+k).style.display = (k===target) ? '' : 'none';
+      });
+      if (target !== 'camera' && state.cameraStatus === 'connected') stopCamera();
+      if (target !== 'video') stopVideoFile();
+      if (target !== 'image'){ dom.imgFile.style.display='none'; }
     });
-    totalNowEl.textContent = '0';
-    totalPeakEl.textContent = '0';
-  }
+  });
 
-  function updateCounts(counts){
-    let totalNow = 0, totalPeak = 0;
-    CATEGORY_ORDER.forEach(k => {
-      const c = counts[k] || 0;
-      if (c > peak[k]) peak[k] = c;
-      document.getElementById('now-'+k).textContent = c;
-      document.getElementById('peak-'+k).textContent = peak[k];
-      totalNow += c;
-      totalPeak += peak[k];
-    });
-    totalNowEl.textContent = totalNow;
-    totalPeakEl.textContent = totalPeak;
-  }
+  dom.startBtn.addEventListener('click', startCamera);
+  dom.stopBtn.addEventListener('click', stopCamera);
+  dom.switchBtn.addEventListener('click', switchCamera);
+  dom.threshold.addEventListener('input', () => {
+    state.threshold = parseFloat(dom.threshold.value);
+    dom.threshVal.textContent = state.threshold.toFixed(2);
+  });
+  dom.perfMode.addEventListener('change', () => {
+    state.perfMode = dom.perfMode.value;
+    applyPerfMode();
+  });
 
-  function drawBox(pred){
-    const info = CATEGORY_MAP[pred.class];
-    if (!info) return;
-    const [x, y, w, h] = pred.bbox;
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = info.color;
-    ctx.strokeRect(x, y, w, h);
-    const label = `${info.label} ${(pred.score*100).toFixed(0)}%`;
-    ctx.font = '600 15px "IBM Plex Mono", monospace';
-    const textW = ctx.measureText(label).width;
-    ctx.fillStyle = info.color;
-    ctx.fillRect(x - 1, y - 22, textW + 12, 22);
-    ctx.fillStyle = '#0c1210';
-    ctx.fillText(label, x + 5, y - 6);
-  }
+  dom.modelDot.className = 'dot warn pulse';
+  dom.modelText.textContent = 'loading models…';
 
-  async function detectLoop(){
-    if (!running) return;
-    if (video.readyState === video.HAVE_ENOUGH_DATA){
-      resizeOverlay();
-      const predictions = await model.detect(video);
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
-      const counts = {};
-      predictions.forEach(p => {
-        if (p.score < threshold) return;
-        if (!CATEGORY_MAP[p.class]) return;
-        counts[p.class] = (counts[p.class] || 0) + 1;
-        drawBox(p);
-      });
-      updateCounts(counts);
-    }
-    rafId = requestAnimationFrame(detectLoop);
+  // General detector
+  if (CONFIG.DETECTOR_BACKEND === 'yolov8-onnx'){
+    state.generalDetector = new YoloOnnxDetector(CONFIG.GENERAL_MODEL);
+    await state.generalDetector.load();
+    dom.metricModel.textContent = 'YOLOv8n (ONNX)';
+    setModelStatus('general', state.generalDetector.available, state.generalDetector.available ? 'ready' : 'model file not found');
+  } else {
+    state.generalDetector = new CocoSsdDetector();
+    await state.generalDetector.load();
+    dom.metricModel.textContent = 'COCO-SSD (mobilenet_v2)';
+    setModelStatus('general', true, 'ready');
   }
+  dom.metricBackend.textContent = state.generalDetector.backendName ? state.generalDetector.backendName() : 'n/a';
 
-  startBtn.addEventListener('click', startCamera);
-  stopBtn.addEventListener('click', stopCamera);
-  switchBtn.addEventListener('click', switchCamera);
-  window.addEventListener('resize', resizeOverlay);
-})();
+  // Emergency detector (optional, off unless configured)
+  state.emergencyDetector = new YoloOnnxDetector(CONFIG.EMERGENCY_MODEL);
+  await state.emergencyDetector.load();
+  setModelStatus('emergency', state.emergencyDetector.available, state.emergencyDetector.available ? 'ready' : 'not loaded');
+
+  applyPerfMode();
+  dom.modelDot.className = 'dot ok';
+  dom.modelText.textContent = 'models ready';
+}
+function applyPerfMode(){
+  const d = state.generalDetector;
+  if (!(d instanceof CocoSsdDetector)) { dom.metricMode.textContent = state.perfMode; return; }
+  if (state.perfMode === 'fast'){ d.tiling = false; }
+  else if (state.perfMode === 'balanced'){ d.tiling = false; }
+  else { d.tiling = true; d.tileRows = 2; d.tileCols = 2; }
+  dom.metricMode.textContent = state.perfMode + (d.tiling ? ' (tiled 2x2)' : '');
+}
+
+init();
 </script>
-
 </body>
 </html>
