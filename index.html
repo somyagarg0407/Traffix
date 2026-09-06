@@ -714,29 +714,96 @@ function buildCountRows() {
 /* =========================================================================
    SECTION 12 -- CAMERA MANAGEMENT
    ========================================================================= */
+function waitForVideoReady(vid) {
+  return new Promise((resolve, reject) => {
+    if (vid.readyState >= 2) return resolve(); // HAVE_METADATA or higher
+    const onMeta = () => { cleanup(); resolve(); };
+    const onErr = (e) => { cleanup(); reject(e); };
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Video metadata timeout')); }, 5000);
+    const cleanup = () => {
+      vid.removeEventListener('loadedmetadata', onMeta);
+      vid.removeEventListener('error', onErr);
+      clearTimeout(timeout);
+    };
+    vid.addEventListener('loadedmetadata', onMeta);
+    vid.addEventListener('error', onErr);
+  });
+}
+
+function handleCameraError(err) {
+  console.error('[camera error]', err.name, err.message);
+  dom.startBtn.disabled = false;
+  let msg = 'Camera could not start: ' + err.name + (err.message ? ' - ' + err.message : '');
+  let status = 'error';
+  if (err.name === 'NotAllowedError') {
+    msg = 'Camera permission denied. Allow camera access for this site in Chrome settings.';
+    status = 'permission_denied';
+  } else if (err.name === 'NotFoundError') {
+    msg = 'No camera was found on this device.';
+    status = 'unavailable';
+  } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+    msg = 'Camera is already being used by another app or browser tab.';
+    status = 'error';
+  } else if (err.name === 'SecurityError') {
+    msg = 'Camera access is blocked by browser security settings.';
+    status = 'error';
+  } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+    msg = 'Requested camera settings are not supported. Retrying with basic camera settings...';
+  }
+  setCameraStatus(status);
+  showToast(msg, 'error');
+}
+
 async function startCamera() {
-  dom.startBtn.disabled=true;
+  dom.startBtn.disabled = true;
   setCameraStatus('starting');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setCameraStatus('error');
+    showToast('Camera API not supported in this browser.', 'error');
+    return;
+  }
+  
+  let stream;
   try {
-    state.stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:state.facingMode,width:{ideal:1280,max:1920},height:{ideal:720,max:1080}},audio:false
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: state.facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
     });
-    dom.video.srcObject=state.stream;
-    dom.video.style.display='block';
-    await new Promise((res,rej)=>{ dom.video.oncanplay=res; dom.video.onerror=rej; dom.video.play().catch(rej); });
-    dom.placeholder.style.display='none';
+  } catch(err) {
+    if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+      showToast('Requested camera settings are not supported. Retrying with basic camera settings...', 'warning');
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      } catch(fallbackErr) {
+        handleCameraError(fallbackErr);
+        return;
+      }
+    } else {
+      handleCameraError(err);
+      return;
+    }
+  }
+
+  try {
+    state.stream = stream;
+    dom.video.srcObject = stream;
+    dom.video.style.display = 'block';
+    await waitForVideoReady(dom.video);
+    await dom.video.play();
+    
+    dom.placeholder.style.display = 'none';
     setCameraStatus('connected');
-    dom.switchBtn.disabled=false; dom.stopBtn.disabled=false;
-    setSource(dom.video,'camera');
+    dom.switchBtn.disabled = false;
+    dom.stopBtn.disabled = false;
+    setSource(dom.video, 'camera');
     startDetectionLoop();
   } catch(err) {
-    console.error('[camera]',err);
-    dom.startBtn.disabled=false;
-    if (err.name==='NotAllowedError') setCameraStatus('permission_denied');
-    else if (err.name==='NotFoundError') setCameraStatus('unavailable');
-    else setCameraStatus('error');
+    console.error('[camera play error]', err);
+    handleCameraError(err);
+    stopCamera();
   }
 }
+
 function stopCamera() {
   if (state.stream) { state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; }
   dom.video.srcObject=null; dom.video.style.display='none';
@@ -745,24 +812,39 @@ function stopCamera() {
   dom.startBtn.disabled=false; dom.switchBtn.disabled=true; dom.stopBtn.disabled=true;
   stopDetectionLoop(); clearOverlay(); resetCounts();
 }
+
 async function switchCamera() {
-  state.facingMode=state.facingMode==='environment'?'user':'environment';
-  if (state.stream) state.stream.getTracks().forEach(t=>t.stop());
+  const newMode = state.facingMode === 'environment' ? 'user' : 'environment';
   try {
-    state.stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:state.facingMode,width:{ideal:1280},height:{ideal:720}},audio:false
-    });
-    dom.video.srcObject=state.stream;
-    // Wait for new stream to be ready before detection resumes
-    await new Promise((res,rej)=>{ dom.video.oncanplay=res; dom.video.onerror=rej; dom.video.play().catch(rej); });
-    // Re-register source so syncOverlay() picks up new stream dimensions
-    setSource(dom.video,'camera');
+    let newStream;
+    try {
+      newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: newMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+    } catch (e) {
+      if (e.name === 'OverconstrainedError' || e.name === 'ConstraintNotSatisfiedError') {
+        newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      } else {
+        throw e;
+      }
+    }
+    
+    // Success - now safe to stop the old stream
+    if (state.stream) state.stream.getTracks().forEach(t=>t.stop());
+    
+    state.facingMode = newMode;
+    state.stream = newStream;
+    dom.video.srcObject = newStream;
+    await waitForVideoReady(dom.video);
+    await dom.video.play();
+    setSource(dom.video, 'camera');
   } catch(err) {
-    showToast('Could not switch camera: '+err.message,'error');
-    // Revert facing mode since switch failed
-    state.facingMode=state.facingMode==='environment'?'user':'environment';
+    console.error('[camera switch error]', err);
+    showToast('Could not switch camera: ' + err.message, 'error');
   }
 }
+
 function setCameraStatus(s) {
   const MAP={
     idle:['','camera idle'], starting:['warn pulse','starting...'], connected:['ok','camera live'],
@@ -770,8 +852,6 @@ function setCameraStatus(s) {
   };
   const [cls,text]=MAP[s]||['',s];
   dom.camDot.className='dot '+cls; dom.camText.textContent=text;
-  if (s==='permission_denied') showToast('Camera permission denied. On Android Chrome: tap lock icon -> Permissions -> Camera -> Allow -> reload.','warning');
-  if (s==='unavailable') showToast('No camera was found on this device.','warning');
 }
 
 /* =========================================================================
@@ -838,6 +918,11 @@ function schedNext(d) { state.loopHandle=setTimeout(detectionTick,d); }
 
 async function detectionTick() {
   if(!state.running) return;
+  // Safety check: wait for video to have enough data before inferencing
+  if ((state.sourceKind === 'camera' || state.sourceKind === 'video') && state.source && state.source.readyState < 4) {
+    schedNext(80);
+    return;
+  }
   if(state.inferenceRunning) { schedNext(80); return; }
   state.inferenceRunning=true;
   dom.procIndicator.style.display='';
